@@ -10,10 +10,11 @@ BOOL CALLBACK DlgProc(HWND, UINT, WPARAM, LPARAM);
 
 TCHAR szAppName[] = TEXT("AudioProject");
 
-HMODULE handle;
-PINT16 *buffer; 
-DWORD *bufferSize;
-
+HMODULE				handle;
+PINT16				*buffer; 
+DWORD				*bufferSize;
+static PINT16       pSaveBuffer;
+static DWORD        dwDataLength;
 
 BOOL APIENTRY DllMain(
 	HANDLE hModule,	   // Handle to DLL module 
@@ -27,6 +28,12 @@ BOOL APIENTRY DllMain(
 __declspec(dllexport) int DisplayHelloFromDLL() { return 13; }
 __declspec(dllexport) PINT16* getBuffer() { return buffer; }
 __declspec(dllexport) DWORD* getBufferSize() { return bufferSize; }
+
+
+__declspec(dllexport) void syncBuffers(PINT16 newBuffer_ptr, DWORD bufferSize){
+	pSaveBuffer = newBuffer_ptr; 
+	//dwDataLength = bufferSize;
+}
 
 __declspec(dllexport) void makeWindow()
 {
@@ -64,10 +71,10 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static BOOL         bRecording, bPlaying, bReverse, bPaused,
 		bEnding, bTerminating;
-	static DWORD        dwDataLength, dwRepetitions = 1;
+	static DWORD        dwRepetitions = 1;
 	static HWAVEIN      hWaveIn;
 	static HWAVEOUT     hWaveOut;
-	static PINT16       pBuffer1, pBuffer2, pSaveBuffer, pNewBuffer;
+	static PINT16       pBuffer1, pBuffer2, pNewBuffer;
 	static PWAVEHDR     pWaveHdr1, pWaveHdr2;
 	static TCHAR        szOpenError[] = TEXT("Error opening waveform audio!");
 	static TCHAR        szMemError[] = TEXT("Error allocating memory!");
@@ -223,8 +230,26 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDC_PLAY_REP:
 			// Set infinite repetitions and play
 
-			dwRepetitions = -1;
-			SendMessage(hwnd, WM_COMMAND, IDC_PLAY_BEG, 0);
+			SetDlgItemText(hwnd, IDC_PLAY_REP, TEXT("Playing"));
+
+			waveform.wFormatTag = WAVE_FORMAT_PCM;
+			waveform.nChannels = 1;
+			waveform.nSamplesPerSec = 44100;
+			waveform.nAvgBytesPerSec = 88200;
+			waveform.nBlockAlign = 2;
+			waveform.wBitsPerSample = 16;
+			waveform.cbSize = 0;
+
+			if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &waveform,
+				(DWORD)hwnd, 0, CALLBACK_WINDOW))
+			{
+				MessageBeep(MB_ICONEXCLAMATION);
+				MessageBox(hwnd, szOpenError, szAppName,
+					MB_ICONEXCLAMATION | MB_OK);
+			}
+
+			//dwRepetitions = -1;
+			//SendMessage(hwnd, WM_COMMAND, IDC_PLAY_BEG, 0);
 			return TRUE;
 
 		case IDC_PLAY_SPEED:
