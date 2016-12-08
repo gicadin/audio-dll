@@ -13,7 +13,7 @@ TCHAR szAppName[] = TEXT("Assignment3");
 
 HMODULE				handle;
 PBYTE				*buffer;
-DWORD				*bufferSize;
+DWORD				*bufferSize, dwDataLength;
 static PINT16       pSaveBuffer;
 
 BOOL APIENTRY DllMain(
@@ -35,7 +35,7 @@ __declspec(dllexport) DWORD getBufferSize() {
 
 __declspec(dllexport) void syncBuffers(PINT16 newBuffer_ptr, DWORD bufferSize) {
 	pSaveBuffer = newBuffer_ptr;
-	//dwDataLength = bufferSize;
+	dwDataLength = bufferSize * 2;
 }
 
 __declspec(dllexport) void makeWindow()
@@ -68,7 +68,7 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static BOOL         bRecording, bPlaying, bReverse, bPaused,
 		bEnding, bTerminating;
-	static DWORD        dwDataLength, dwRepetitions = 1;
+	static DWORD        dwRepetitions = 1;
 	static HWAVEIN      hWaveIn;
 	static HWAVEOUT     hWaveOut;
 	static PINT16       pBuffer1, pBuffer2, pNewBuffer;
