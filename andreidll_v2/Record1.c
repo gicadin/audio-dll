@@ -5,16 +5,16 @@
 #include "resource.h"
 
 //#define INP_BUFFER_SIZE 16384
-#define INP_BUFFER_SIZE 163840
+#define INP_BUFFER_SIZE 65536
+//#define INP_BUFFER_SIZE 131072
 BOOL CALLBACK DlgProc(HWND, UINT, WPARAM, LPARAM);
 
-TCHAR szAppName[] = TEXT("AudioProject");
+TCHAR szAppName[] = TEXT("Assignment3");
 
 HMODULE				handle;
-PINT16				*buffer; 
+PBYTE				*buffer;
 DWORD				*bufferSize;
 static PINT16       pSaveBuffer;
-static DWORD        dwDataLength;
 
 BOOL APIENTRY DllMain(
 	HANDLE hModule,	   // Handle to DLL module 
@@ -26,19 +26,22 @@ BOOL APIENTRY DllMain(
 }
 
 __declspec(dllexport) int DisplayHelloFromDLL() { return 13; }
-__declspec(dllexport) PINT16* getBuffer() { return buffer; }
-__declspec(dllexport) DWORD* getBufferSize() { return bufferSize; }
+__declspec(dllexport) PBYTE* getBuffer() { return buffer; }
+//__declspec(dllexport) DWORD* getBufferSize() { return bufferSize; }
 
+__declspec(dllexport) DWORD getBufferSize() {
+	return *bufferSize / 2;
+}
 
-__declspec(dllexport) void syncBuffers(PINT16 newBuffer_ptr, DWORD bufferSize){
-	pSaveBuffer = newBuffer_ptr; 
+__declspec(dllexport) void syncBuffers(PINT16 newBuffer_ptr, DWORD bufferSize) {
+	pSaveBuffer = newBuffer_ptr;
 	//dwDataLength = bufferSize;
 }
 
 __declspec(dllexport) void makeWindow()
 {
 	//HINSTANCE hInstance = GetModuleHandle("andreidll_v2.dll");
-	
+
 	if (-1 == CreateDialog(handle, TEXT("RECORD"), NULL, DlgProc))
 	{
 		//ErrorExit(TEXT("GetProcessId"));
@@ -47,12 +50,6 @@ __declspec(dllexport) void makeWindow()
 	}
 }
 
-__declspec(dllexport) void IncreaseVolume(BYTE * pBuffer, unsigned int iLength)
-{
-
-	for (int i = 0; i < iLength; i++)
-		pBuffer[i] *= 1.5;
-}
 
 void ReverseMemory(BYTE * pBuffer, int iLength)
 {
@@ -71,7 +68,7 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static BOOL         bRecording, bPlaying, bReverse, bPaused,
 		bEnding, bTerminating;
-	static DWORD        dwRepetitions = 1;
+	static DWORD        dwDataLength, dwRepetitions = 1;
 	static HWAVEIN      hWaveIn;
 	static HWAVEOUT     hWaveOut;
 	static PINT16       pBuffer1, pBuffer2, pNewBuffer;
@@ -80,9 +77,8 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static TCHAR        szMemError[] = TEXT("Error allocating memory!");
 	static WAVEFORMATEX waveform;
 
-	buffer = &pSaveBuffer;
-	bufferSize = &dwDataLength;
-	
+
+
 	switch (message)
 	{
 	case WM_INITDIALOG:
@@ -126,18 +122,12 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			waveform.wBitsPerSample = 16;
 			waveform.cbSize = 0;
 
-			MMRESULT mmError;
-			char buffer[100];
-			LPTSTR errorMsg = buffer;
-
-			if ( mmError = waveInOpen(&hWaveIn, WAVE_MAPPER, &waveform,
+			if (waveInOpen(&hWaveIn, WAVE_MAPPER, &waveform,
 				(DWORD)hwnd, 0, CALLBACK_WINDOW))
 			{
-				waveOutGetErrorText(mmError, errorMsg, 100); 
 				free(pBuffer1);
 				free(pBuffer2);
 				MessageBeep(MB_ICONEXCLAMATION);
-				MessageBox(hwnd, errorMsg, szAppName, MB_ICONEXCLAMATION | MB_OK);
 				MessageBox(hwnd, szOpenError, szAppName,
 					MB_ICONEXCLAMATION | MB_OK);
 			}
@@ -168,10 +158,12 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case IDC_RECORD_END:
 			// Reset input to return last buffer
+			buffer = &pSaveBuffer;
+			bufferSize = &dwDataLength;
 
 			bEnding = TRUE;
 			waveInReset(hWaveIn);
-						
+
 			return TRUE;
 
 		case IDC_PLAY_BEG:
@@ -247,9 +239,10 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				MessageBox(hwnd, szOpenError, szAppName,
 					MB_ICONEXCLAMATION | MB_OK);
 			}
-
-			//dwRepetitions = -1;
-			//SendMessage(hwnd, WM_COMMAND, IDC_PLAY_BEG, 0);
+			/*
+			dwRepetitions = -1;
+			SendMessage(hwnd, WM_COMMAND, IDC_PLAY_BEG, 0);
+			*/
 			return TRUE;
 
 		case IDC_PLAY_SPEED:
@@ -260,7 +253,7 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			waveform.nSamplesPerSec = 22050;
 			waveform.nAvgBytesPerSec = 22050;
 			waveform.nBlockAlign = 1;
-			waveform.wBitsPerSample = 16;
+			waveform.wBitsPerSample = 8;
 			waveform.cbSize = 0;
 
 			if (waveOutOpen(&hWaveOut, 0, &waveform, (DWORD)hwnd, 0,
@@ -301,7 +294,7 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		bRecording = TRUE;
 		bEnding = FALSE;
 		dwDataLength = 0;
-		
+
 		waveInStart(hWaveIn);
 		return TRUE;
 
@@ -322,9 +315,10 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		pSaveBuffer = pNewBuffer;
-		CopyMemory(pSaveBuffer + dwDataLength, ((PWAVEHDR)lParam)->lpData,
+		
+		CopyMemory(pSaveBuffer + dwDataLength / 2, ((PWAVEHDR)lParam)->lpData,
 			((PWAVEHDR)lParam)->dwBytesRecorded);
-
+		
 		dwDataLength += ((PWAVEHDR)lParam)->dwBytesRecorded;
 
 		if (bEnding)
